@@ -1,0 +1,25 @@
+{
+  "name": "automation-fin-techno",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node cli.mjs",
+    "test": "npx playwright test",
+    "pretest": "node -e \"const fs=require('fs');if(fs.existsSync('screenshots')){fs.rmSync('screenshots',{recursive:true})}\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "@playwright/test": "^1.62.1",
+    "@types/imap-simple": "^4.2.10",
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^26.2.0",
+    "dotenv": "^17.4.2",
+    "imap-simple": "^5.1.0",
+    "inquirer": "^14.0.2",
+    "mailparser": "^3.9.15"
+  }
+}
