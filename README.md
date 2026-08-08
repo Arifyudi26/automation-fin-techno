@@ -1,6 +1,6 @@
 # Automation Fin-Techno
 
-Automated test suite untuk aplikasi [Fin-Techno](https://fin-techno.vercel.app) menggunakan **Playwright** + **TypeScript**. Mencakup test login, forgot password, dan UI component.
+Automated test suite untuk aplikasi [Fin-Techno](https://fin-techno.vercel.app) menggunakan **Playwright** + **TypeScript**. Mencakup test autentikasi (login, signup, forgot password) dan dashboard.
 
 ## Tech Stack
 
@@ -17,17 +17,25 @@ Automated test suite untuk aplikasi [Fin-Techno](https://fin-techno.vercel.app) 
 ```
 automation-fin-techno/
 ├── playwright.config.ts          # Konfigurasi Playwright
-├── global-setup.ts               # Global setup (load .env)
+├── global-setup.ts               # Global setup (clear screenshots)
 ├── cli.mjs                       # Interactive CLI runner
 ├── tests/
 │   ├── auth/
 │   │   ├── login.spec.ts         # Test login (full flow + negative + UI)
-│   │   └── forgot-password.spec.ts  # Test forgot/change password
+│   │   ├── signup.spec.ts        # Test sign up (full flow + negative + UI)
+│   │   ├── forgot-password.spec.ts  # Test forgot/change password
+│   │   └── README.md             # Dokumentasi test auth
+│   ├── dashboard/
+│   │   ├── dashboard.spec.ts     # Test dashboard (semua section + interaksi)
+│   │   └── README.md             # Dokumentasi test dashboard
 │   └── helpers/
-│       └── email-otp.ts          # Helper IMAP untuk ambil OTP dari Gmail
-├── screenshots/                  # Output screenshot dari test (auto-generated)
+│       ├── email-otp.ts          # Helper IMAP untuk ambil OTP dari Gmail
+│       └── login.ts              # Shared helper login (reusable)
+├── screenshots/                  # Output screenshot (auto-generated)
 │   ├── login/
-│   └── forgot-password/
+│   ├── signup/
+│   ├── forgot-password/
+│   └── dashboard/
 ├── .env                          # Environment variables (tidak di-commit)
 ├── .env.example                  # Template env variables
 ├── package.json
@@ -75,76 +83,62 @@ IMAP_PORT=993
 npm start
 ```
 
-CLI akan menampilkan menu interaktif untuk memilih test mana yang ingin dijalankan (per folder atau per file).
-
 ### Command Langsung
 
 ```bash
 # Jalankan semua test
 npx playwright test
 
-# Jalankan test login saja
+# Per folder
+npx playwright test tests/auth/
+npx playwright test tests/dashboard/
+
+# Per file
 npx playwright test tests/auth/login.spec.ts
+npx playwright test tests/auth/signup.spec.ts
+npx playwright test tests/auth/forgot-password.spec.ts
+npx playwright test tests/dashboard/dashboard.spec.ts
+
+# Per scenario (grep)
+npx playwright test --grep "Login"
+npx playwright test --grep "Negative"
 ```
 
 ## Cara Kerja OTP
 
 Test mengambil kode OTP secara otomatis dari inbox Gmail menggunakan IMAP:
 
-1. Setelah action (login/ganti password), aplikasi mengirim email OTP
+1. Setelah action (login/signup/ganti password), aplikasi mengirim email OTP
 2. Test konek ke Gmail via IMAP menggunakan App Password
 3. Mencari email terbaru dengan subject yang sesuai (UNSEEN)
 4. Parsing body email dan extract kode 6 digit menggunakan regex
 5. Kode OTP di-input ke form dan diverifikasi
 
-## Test Cases
+## Test Coverage
 
-### Login - Positive Test (Full Flow)
+### Auth (3 files, 20+ test cases)
 
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Login → Input OTP dari email → Verifikasi | Redirect ke Dashboard Keuangan |
+| Module | Positive | Negative | UI |
+|--------|----------|----------|----|
+| Login | 1 (full flow + OTP) | 6 | 3 |
+| Sign Up | 1 (full flow + OTP) | 7 | 3 |
+| Forgot Password | 1 (full flow + OTP) | 5 | 1 (navigasi) |
 
-### Login - Negative Test
+Detail: lihat [`tests/auth/README.md`](tests/auth/README.md)
 
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Email kosong + password valid | Tombol Sign in disabled |
-| 2 | Email tidak valid + password valid | Tetap di halaman login |
-| 3 | Email valid + password kosong | Tombol Sign in disabled |
-| 4 | Email & password kosong | Tombol Sign in disabled |
-| 5 | Password salah | Tetap di halaman login |
-| 6 | Email belum terdaftar | Tetap di halaman login |
+### Dashboard (1 file, 7 test cases)
 
-### Login - UI Test
+| Module | Test Cases |
+|--------|-----------|
+| Verifikasi Elemen | Login → semua section dashboard visible |
+| Finance Metrics | 5 metric cards loaded |
+| Rekening & Dompet | Filter Semua/Bank/Dompet |
+| Transaksi Terbaru | Filter Semua/Masuk/Keluar |
+| Spending By Category | Toggle Expense/Income + Donut/Bar |
+| AI Insights | Klik Analisis Sekarang |
+| Navigasi | Lihat Semua → halaman transaksi |
 
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Toggle show/hide password | Input type berubah password ↔ text |
-| 2 | Theme toggle dark/light | Class `dark` ditambah/dihapus dari `<html>` |
-| 3 | Logo link ke halaman utama | Redirect ke `/auth/login` (karena belum auth) |
-
-### Forgot Password - Navigasi
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Klik "Lupa password?" di halaman login | Navigasi ke halaman Ganti Password |
-
-### Forgot Password - Positive Test
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Isi form valid → OTP → Verifikasi | Redirect ke halaman login (berhasil ganti password) |
-
-### Forgot Password - Negative Test
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Form kosong | Tidak bisa submit (browser validation) |
-| 2 | Password tidak cocok | Pesan error "Password tidak cocok" |
-| 3 | Password < 8 karakter | Pesan error "Password terlalu pendek" |
-| 4 | Email tidak terdaftar | Pesan error "Email tidak ditemukan" |
-| 5 | Email format tidak valid | Tidak bisa submit (browser validation) |
+Detail: lihat [`tests/dashboard/README.md`](tests/dashboard/README.md)
 
 ## Konfigurasi Playwright
 
@@ -159,4 +153,4 @@ use: {
 
 ## Screenshots
 
-Setiap test menghasilkan screenshot pada checkpoint penting. Screenshot disimpan di folder `screenshots/` dan di-generate ulang otomatis setiap kali test dijalankan (folder lama dihapus via `pretest` script).
+Setiap test menghasilkan screenshot pada checkpoint penting. Screenshot disimpan di folder `screenshots/` dan di-generate ulang otomatis setiap kali test dijalankan (folder lama dihapus via `global-setup.ts`).
