@@ -6,7 +6,7 @@ Test suite untuk halaman **Dashboard** aplikasi Fin-Techno. Setiap test melakuka
 
 | File | Deskripsi |
 |------|-----------|
-| `dashboard.spec.ts` | Test semua section dan interaksi di halaman dashboard |
+| `dashboard.spec.ts` | Test semua section, interaksi, dan LLM analysis di halaman dashboard |
 
 ## Menjalankan Test
 
@@ -22,6 +22,7 @@ npx playwright test tests/dashboard/dashboard.spec.ts --grep "Transaksi"
 npx playwright test tests/dashboard/dashboard.spec.ts --grep "Spending"
 npx playwright test tests/dashboard/dashboard.spec.ts --grep "AI"
 npx playwright test tests/dashboard/dashboard.spec.ts --grep "Navigasi"
+npx playwright test tests/dashboard/dashboard.spec.ts --grep "Groq"
 ```
 
 ## Prasyarat
@@ -30,6 +31,7 @@ Test dashboard memerlukan **login berhasil** (termasuk OTP via email). Pastikan:
 - `.env` sudah dikonfigurasi dengan benar
 - Email IMAP bisa diakses (untuk ambil OTP)
 - Akun test sudah terdaftar di aplikasi
+- `GROQ_API_KEY` diisi untuk test LLM (opsional)
 
 ## Test Cases
 
@@ -82,6 +84,40 @@ Test dashboard memerlukan **login berhasil** (termasuk OTP via email). Pastikan:
 | Scenario | Expected |
 |----------|----------|
 | Klik "Lihat Semua" di Transaksi Terbaru | Navigasi ke halaman `/transactions` |
+
+### 8. LLM Analysis (Groq)
+
+| Scenario | Expected |
+|----------|----------|
+| Ambil text + struktur halaman → kirim ke Groq | LLM memberikan UX score dan suggestions |
+
+## LLM Integration (Groq)
+
+Test menggunakan **Groq API** (Llama 3) untuk analisis text content dashboard secara otomatis. LLM menerima:
+- Text content halaman (innerText)
+- Informasi struktur (headings, charts, buttons)
+- Info teknis (responsive, tech stack)
+
+Dan memberikan:
+- `uxScore` — skor UX 1-10
+- `completeness` — seberapa lengkap fitur
+- `suggestions` — saran perbaikan yang actionable
+
+### Kenapa Text-Only?
+
+Groq saat ini **hanya support text model** (semua vision model sudah di-decommission). Untuk mengatasi keterbatasan ini, test mengumpulkan informasi struktur halaman (accessibility roles, headings, chart presence) dan mengirimnya sebagai context tambahan ke LLM.
+
+### Alternatif untuk Vision (Image Analysis)
+
+Jika ingin LLM menganalisis **screenshot** langsung (visual analysis), gunakan provider berikut:
+
+| Provider | Vision Model | Free? | Cocok? |
+|----------|-------------|-------|--------|
+| OpenAI | GPT-4o / GPT-4o-mini | Bayar (~$2.50/1M tokens) | ✅ Paling reliable |
+| Google Gemini | gemini-2.0-flash | 15 req/min gratis | ⚠️ Quota terbatas |
+| Anthropic | Claude 3.5 Sonnet | Bayar (~$3/1M tokens) | ✅ Bagus |
+| OpenRouter | Free vision models | Beberapa gratis | ⚠️ Lambat |
+| Ollama (local) | llama3.2-vision 11B | Gratis (local) | ⚠️ Butuh GPU |
 
 ## Shared Helper
 

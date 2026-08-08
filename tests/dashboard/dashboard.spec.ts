@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loginToDashboard } from '../helpers/login';
+import { askLLM, isRateLimitError } from '../helpers/llm';
 
 // Helper to ensure screenshot directory exists
 function ensureDir(dirPath: string) {
@@ -224,5 +225,73 @@ test.describe('Dashboard - Navigasi ke Transaksi', () => {
 
     // Verifikasi URL
     expect(page.url()).toContain('/transactions');
+  });
+});
+
+
+test.describe('Dashboard - LLM Analysis (Groq)', () => {
+  test('LLM analisis halaman dashboard dan kasih suggestions', async ({ page }) => {
+    test.setTimeout(150000);
+    ensureDir(SCREENSHOT_DIR);
+
+    await loginToDashboard(page);
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/llm-01-dashboard.png`, fullPage: true });
+
+    // Ambil text content + struktur halaman (headings, charts, buttons)
+    const pageContent = await page.locator('body').innerText();
+    const shortContent = pageContent.substring(0, 1200);
+
+    // Ambil info tambahan yang tidak ada di innerText
+    const hasBarChart = await page.locator('[role="application"]').count() > 0;
+    const headings = await page.locator('h2, h3').allInnerTexts();
+    const buttons = await page.locator('button').allInnerTexts();
+
+    const structureInfo = `
+Sections (headings): ${headings.filter(h => h.trim()).join(', ')}
+Has interactive charts (ApexCharts): ${hasBarChart}
+Buttons available: ${buttons.filter(b => b.trim()).slice(0, 15).join(', ')}
+Layout: responsive (sidebar + main content, mobile-friendly with collapsible sidebar)
+Tech: Next.js + TailwindCSS + ApexCharts`;
+
+    // Kirim ke Groq untuk analisis UX/fitur
+    let analysis: string;
+    try {
+      analysis = await askLLM(
+        `You are a senior QA & UX reviewer. Analyze this financial dashboard. Respond ONLY with a JSON object.
+        Text content: "${shortContent}" Page structure: ${structureInfo} JSON format: {"isDashboard":true,"uxScore":8,"completeness":"good","suggestions":["actionable suggestion 1","actionable suggestion 2"]}`
+      );
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        test.skip(true, 'LLM rate limited — skip');
+        return;
+      }
+      throw error;
+    }
+
+    console.log('LLM Raw Response:', analysis);
+
+    // Extract JSON dari response
+    const jsonMatch = analysis.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log('LLM did not return valid JSON. Full response:', analysis);
+      return;
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Verifikasi ini halaman dashboard
+    expect(parsed.isDashboard).toBe(true);
+
+    // Log hasil analisis
+    console.log(`\n=== LLM Dashboard Analysis ===`);
+    console.log(`UX Score: ${parsed.uxScore}/10`);
+    console.log(`Completeness: ${parsed.completeness}`);
+    if (parsed.suggestions && parsed.suggestions.length > 0) {
+      console.log(`\nSuggestions:`);
+      parsed.suggestions.forEach((s: string, i: number) => console.log(`  ${i + 1}. ${s}`));
+    }
+    console.log(`==============================\n`);
+
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/llm-02-analysis-done.png`, fullPage: true });
   });
 });

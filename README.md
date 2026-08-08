@@ -1,6 +1,6 @@
 # Automation Fin-Techno
 
-Automated test suite untuk aplikasi [Fin-Techno](https://fin-techno.vercel.app) menggunakan **Playwright** + **TypeScript**. Mencakup test autentikasi (login, signup, forgot password) dan dashboard.
+Automated test suite untuk aplikasi [Fin-Techno](https://fin-techno.vercel.app) menggunakan **Playwright** + **TypeScript** + **LLM (Groq)**. Mencakup test autentikasi, dashboard, dan AI-powered analysis.
 
 ## Tech Stack
 
@@ -8,6 +8,7 @@ Automated test suite untuk aplikasi [Fin-Techno](https://fin-techno.vercel.app) 
 |------|--------|
 | [Playwright](https://playwright.dev/) | Browser automation & testing framework |
 | TypeScript | Bahasa pemrograman |
+| [Groq SDK](https://console.groq.com/) | LLM API (Llama 3) untuk analisis halaman |
 | [imap-simple](https://www.npmjs.com/package/imap-simple) | Koneksi ke Gmail via IMAP untuk mengambil OTP |
 | [mailparser](https://www.npmjs.com/package/mailparser) | Parsing isi email (extract body text/HTML) |
 | [Inquirer](https://www.npmjs.com/package/@inquirer/prompts) | Interactive CLI untuk memilih test |
@@ -26,11 +27,12 @@ automation-fin-techno/
 │   │   ├── forgot-password.spec.ts  # Test forgot/change password
 │   │   └── README.md             # Dokumentasi test auth
 │   ├── dashboard/
-│   │   ├── dashboard.spec.ts     # Test dashboard (semua section + interaksi)
-│   │   └── README.md             # Dokumentasi test dashboard
+│   │   ├── dashboard.spec.ts     # Test dashboard (section + interaksi + LLM)
+│   │   └── README.md             # Dokumentasi test dashboard + LLM
 │   └── helpers/
 │       ├── email-otp.ts          # Helper IMAP untuk ambil OTP dari Gmail
-│       └── login.ts              # Shared helper login (reusable)
+│       ├── login.ts              # Shared helper login (reusable)
+│       └── llm.ts                # Helper Groq LLM untuk analisis halaman
 ├── screenshots/                  # Output screenshot (auto-generated)
 │   ├── login/
 │   ├── signup/
@@ -62,6 +64,9 @@ cp .env.example .env
 TEST_EMAIL=your-email@gmail.com
 TEST_PASSWORD=your-password
 
+# Groq AI (untuk LLM test) - gratis di console.groq.com
+GROQ_API_KEY=your-groq-api-key
+
 # Gmail IMAP untuk ambil OTP
 IMAP_USER=your-email@gmail.com
 IMAP_PASSWORD=your-app-password
@@ -74,6 +79,12 @@ IMAP_PORT=993
 1. **Aktifkan 2-Step Verification** di Google Account
 2. **Buat App Password** di https://myaccount.google.com/apppasswords
 3. Gunakan App Password 16 karakter tersebut sebagai `IMAP_PASSWORD` (bukan password Gmail utama)
+
+### Prasyarat Groq (untuk LLM test)
+
+1. Daftar gratis di https://console.groq.com
+2. Buat API Key
+3. Isi di `.env` sebagai `GROQ_API_KEY`
 
 ## Menjalankan Test
 
@@ -102,6 +113,7 @@ npx playwright test tests/dashboard/dashboard.spec.ts
 # Per scenario (grep)
 npx playwright test --grep "Login"
 npx playwright test --grep "Negative"
+npx playwright test --grep "Groq"
 ```
 
 ## Cara Kerja OTP
@@ -113,6 +125,17 @@ Test mengambil kode OTP secara otomatis dari inbox Gmail menggunakan IMAP:
 3. Mencari email terbaru dengan subject yang sesuai (UNSEEN)
 4. Parsing body email dan extract kode 6 digit menggunakan regex
 5. Kode OTP di-input ke form dan diverifikasi
+
+## LLM Integration (Groq)
+
+Test dashboard menggunakan **Groq API** untuk analisis otomatis:
+- Ambil text content + struktur halaman (headings, charts, buttons)
+- Kirim ke Llama 3 via Groq
+- LLM memberikan UX score dan suggestions
+
+Groq free tier: **30 req/menit, 14.400 req/hari** — sangat cukup untuk testing.
+
+> **Note:** Groq saat ini hanya support text model. Untuk vision/screenshot analysis, lihat alternatif di [README Dashboard](tests/dashboard/README.md#alternatif-untuk-vision-image-analysis).
 
 ## Test Coverage
 
@@ -126,7 +149,7 @@ Test mengambil kode OTP secara otomatis dari inbox Gmail menggunakan IMAP:
 
 Detail: lihat [`tests/auth/README.md`](tests/auth/README.md)
 
-### Dashboard (1 file, 7 test cases)
+### Dashboard (1 file, 8 test cases)
 
 | Module | Test Cases |
 |--------|-----------|
@@ -137,6 +160,7 @@ Detail: lihat [`tests/auth/README.md`](tests/auth/README.md)
 | Spending By Category | Toggle Expense/Income + Donut/Bar |
 | AI Insights | Klik Analisis Sekarang |
 | Navigasi | Lihat Semua → halaman transaksi |
+| LLM Analysis | Groq analisis UX + suggestions |
 
 Detail: lihat [`tests/dashboard/README.md`](tests/dashboard/README.md)
 
